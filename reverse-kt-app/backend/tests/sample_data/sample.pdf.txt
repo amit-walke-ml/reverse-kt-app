@@ -1,0 +1,176 @@
+# Kubernetes Microservices Deployment Guide
+
+## 1. Architecture Overview
+
+Our platform is built on a microservices architecture deployed on Kubernetes (EKS on AWS). The system consists of the following core services:
+
+### 1.1 Core Services
+
+| Service | Language | Port | Purpose |
+|---------|----------|------|---------|
+| API Gateway | Go | 8080 | Request routing, rate limiting, auth |
+| User Service | Python | 8001 | User management, authentication |
+| Order Service | Java | 8002 | Order processing, payment integration |
+| Notification Service | Node.js | 8003 | Email, SMS, push notifications |
+| Analytics Service | Python | 8004 | Data aggregation, reporting |
+
+### 1.2 Infrastructure Components
+
+- **Kubernetes Cluster**: EKS v1.28 with 3 node groups (general, compute, memory-optimized)
+- **Service Mesh**: Istio 1.20 for inter-service communication
+- **Ingress Controller**: NGINX Ingress with TLS termination
+- **Monitoring Stack**: Prometheus + Grafana + AlertManager
+- **Logging**: EFK Stack (Elasticsearch, Fluentd, Kibana)
+- **CI/CD**: ArgoCD for GitOps-based deployments
+
+## 2. Deployment Pipeline
+
+### 2.1 Build Process
+
+1. Developer pushes code to feature branch
+2. GitHub Actions triggers CI pipeline:
+   - Run unit tests
+   - Run integration tests
+   - Build Docker image
+   - Push to ECR (Elastic Container Registry)
+   - Tag with git SHA and semantic version
+3. Create Pull Request for review
+
+### 2.2 Deployment Stages
+
+```
+Development → Staging → Pre-Production → Production
+```
+
+- **Development**: Auto-deployed on merge to `develop` branch
+- **Staging**: Auto-deployed on merge to `main` branch
+- **Pre-Production**: Manual approval required
+- **Production**: Manual approval + change ticket required
+
+### 2.3 ArgoCD Configuration
+
+ArgoCD watches the `k8s-manifests` repository for changes:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: user-service
+  namespace: argocd
+spec:
+  project: microservices
+  source:
+    repoURL: https://github.com/org/k8s-manifests.git
+    path: services/user-service/overlays/production
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+```
+
+## 3. Kubernetes Resource Management
+
+### 3.1 Resource Quotas
+
+Each service has defined resource requests and limits:
+
+| Service | CPU Request | CPU Limit | Memory Request | Memory Limit |
+|---------|-------------|-----------|----------------|--------------|
+| API Gateway | 500m | 1000m | 512Mi | 1Gi |
+| User Service | 250m | 500m | 256Mi | 512Mi |
+| Order Service | 500m | 1000m | 512Mi | 1Gi |
+| Notification | 100m | 250m | 128Mi | 256Mi |
+| Analytics | 1000m | 2000m | 1Gi | 2Gi |
+
+### 3.2 Horizontal Pod Autoscaler (HPA)
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: user-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: user-service
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
+
+## 4. Troubleshooting Guide
+
+### 4.1 Common Issues
+
+**Pod CrashLoopBackOff**:
+1. Check logs: `kubectl logs <pod> -n <namespace> --previous`
+2. Check events: `kubectl describe pod <pod> -n <namespace>`
+3. Common causes: missing env vars, failed health checks, OOM kills
+4. Resolution: Fix configuration, increase memory limits, or fix application code
+
+**Service Connectivity Issues**:
+1. Verify service exists: `kubectl get svc -n <namespace>`
+2. Check endpoints: `kubectl get endpoints <service> -n <namespace>`
+3. Test DNS: `kubectl exec -it <pod> -- nslookup <service>.<namespace>.svc.cluster.local`
+4. Check Istio sidecar: `istioctl proxy-status`
+
+**High Latency**:
+1. Check Grafana dashboard: "Service Performance Overview"
+2. Identify slow endpoints via Jaeger tracing
+3. Check database connection pool saturation
+4. Review HPA scaling history: `kubectl get hpa -n <namespace>`
+
+### 4.2 Rollback Procedure
+
+1. Identify the last working revision in ArgoCD
+2. Navigate to ArgoCD UI → Application → History
+3. Click "Rollback" on the desired revision
+4. Alternatively, revert the commit in `k8s-manifests` repo
+
+### 4.3 Incident Response
+
+- **P1 (Production Down)**: Page on-call → War room → 15-min status updates
+- **P2 (Degraded Service)**: Slack alert → Investigate → 30-min updates
+- **P3 (Minor Issue)**: Ticket creation → Next sprint fix
+
+## 5. Monitoring & Alerts
+
+### 5.1 Key Metrics
+
+- **Golden Signals**: Latency, Traffic, Errors, Saturation
+- **SLO Target**: 99.9% availability, p99 latency < 500ms
+- **Alert Rules**: Error rate > 1%, latency p99 > 1s, pod restart count > 3
+
+### 5.2 Grafana Dashboards
+
+- Service Performance Overview
+- Kubernetes Cluster Health
+- Database Connection Pool Metrics
+- Customer-Facing Error Tracking
+
+## 6. Security Configuration
+
+### 6.1 Network Policies
+
+All inter-service communication is restricted via Kubernetes NetworkPolicies:
+- Services can only communicate with explicitly allowed services
+- All external traffic must go through the API Gateway
+- Database access is restricted to specific service pods only
+
+### 6.2 Secret Management
+
+- Secrets stored in AWS Secrets Manager
+- Injected via External Secrets Operator
+- Rotated every 90 days automatically
+- Never stored in Git repositories

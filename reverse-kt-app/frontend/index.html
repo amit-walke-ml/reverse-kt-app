@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="kt-api-base" content="">
+    <meta name="description" content="Reverse Knowledge Transfer Assessment System — Upload KT documents and transcripts to generate AI-powered assessments">
+    <title>KT Assessment System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-shell">
+            <div class="login-brand-block">
+                <div class="login-brand-mark">
+                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <h1 class="login-brand-heading">Knowledge Transfer Assessment</h1>
+                <p class="login-brand-tagline">Measure readiness from real KT materials — admins prepare sessions; trainees complete assessments.</p>
+                <div class="login-role-pills">
+                    <span class="login-role-pill">Administrator</span>
+                    <span class="login-role-pill muted">Trainee</span>
+                </div>
+            </div>
+            <div class="login-panel-wrap">
+                <div class="login-panel glass-enhanced">
+                    <h2 class="login-title">Welcome back</h2>
+                    <p class="login-sub">Enter the username and password issued by your administrator.</p>
+                    <form id="login-form" class="login-form" autocomplete="on">
+                        <label class="field-label login-field">
+                            <span class="login-field-caption">Username</span>
+                            <input class="field-input input-well login-input" name="username" type="text" autocomplete="username" required placeholder="Enter your username">
+                        </label>
+                        <label class="field-label login-field">
+                            <span class="login-field-caption">Password</span>
+                            <input class="field-input input-well login-input" name="password" type="password" autocomplete="current-password" required placeholder="Enter your password">
+                        </label>
+                        <p id="login-error" class="login-error" role="alert"></p>
+                        <button type="submit" class="btn btn-primary btn-lg login-submit">Sign in</button>
+                    </form>
+                    <p class="login-footer-hint">Problems signing in? Contact your organisation admin.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-gradient"></div>
+
+    <div id="app-shell" class="app-shell hidden">
+        <aside id="sidebar" class="sidebar" aria-label="Main navigation">
+            <div class="sidebar-brand">
+                <div class="logo-icon sidebar-logo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 17l10 5 10-5"/>
+                        <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <div class="sidebar-brand-text">
+                    <span class="sidebar-brand-title">KT Assessment</span>
+                    <span id="sidebar-role-badge" class="sidebar-role-badge">—</span>
+                </div>
+            </div>
+            <p id="sidebar-user-line" class="sidebar-user-line"></p>
+
+            <nav class="sidebar-nav" id="sidebar-nav">
+                <button type="button" class="sidebar-link" data-nav="upload" id="sidebar-nav-upload" aria-current="false">
+                    <span class="sidebar-link-icon">⬆</span> Upload
+                </button>
+                <button type="button" class="sidebar-link" data-nav="knowledge" id="sidebar-nav-knowledge" disabled aria-current="false">
+                    <span class="sidebar-link-icon">◆</span> Knowledge
+                </button>
+                <button type="button" class="sidebar-link" data-nav="assessment" id="sidebar-nav-assessment" disabled aria-current="false">
+                    <span class="sidebar-link-icon">▣</span> Assessment
+                </button>
+                <button type="button" class="sidebar-link" data-nav="results" id="sidebar-nav-results" disabled aria-current="false">
+                    <span class="sidebar-link-icon">✓</span> Result
+                </button>
+                <button type="button" class="sidebar-link sidebar-link-admin" data-nav="admin" id="sidebar-nav-admin" aria-current="false">
+                    <span class="sidebar-link-icon">⚙</span> Admin
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button type="button" class="sidebar-logout-btn" id="btn-sidebar-logout"><span class="sidebar-logout-label">Log out</span></button>
+            </div>
+        </aside>
+
+        <div class="app-main-area">
+            <main class="main-content">
+
+                <section class="view" id="view-my-assignments">
+                    <div class="view-header">
+                        <h2>Your assessments</h2>
+                        <p>Open an assigned assessment below.</p>
+                    </div>
+                    <div id="assignments-list" class="assignments-list"></div>
+                </section>
+
+                <!-- Admin -->
+                <section class="view" id="view-admin">
+                    <div class="view-header">
+                        <h2>Administration</h2>
+                        <p>Directory, create trainees, assign KT sessions, and review submissions.</p>
+                    </div>
+
+                    <div class="admin-tabs-wrap glass">
+                        <div class="admin-tabs">
+                            <button type="button" class="admin-tab active" id="tab-admin-directory" data-admin-tab="directory">Directory</button>
+                            <button type="button" class="admin-tab" id="tab-admin-create-user" data-admin-tab="create-user">Create trainee</button>
+                            <button type="button" class="admin-tab" id="tab-admin-assign" data-admin-tab="assign">Assign assessment</button>
+                            <button type="button" class="admin-tab" id="tab-admin-results" data-admin-tab="results">Submitted results</button>
+                        </div>
+                    </div>
+
+                    <div id="admin-pane-directory" class="admin-pane">
+                        <div class="admin-toolbar">
+                            <div>
+                                <h3 class="admin-pane-title">User directory</h3>
+                                <p class="muted small admin-pane-desc">View and edit existing accounts.</p>
+                            </div>
+                            <button type="button" class="btn btn-secondary" id="btn-open-create-user">+ Create trainee</button>
+                        </div>
+                        <div class="admin-table-scroll glass admin-table-panel">
+                            <table class="admin-table admin-table-fixed" id="users-crud-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Username</th>
+                                        <th>Full name</th>
+                                        <th>Role</th>
+                                        <th>Active</th>
+                                        <th class="th-actions">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-users-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="admin-pane-create-user" class="admin-pane hidden">
+                        <div class="admin-form-page">
+                            <div class="admin-form-card glass">
+                                <header class="admin-form-header">
+                                    <h3 class="admin-form-title">Create trainee</h3>
+                                    <p class="muted small">Trainees cannot self-register — add accounts here.</p>
+                                </header>
+                                <div class="admin-form-grid">
+                                    <label class="field-label admin-stack-label"><span class="admin-label-text">Username</span>
+                                        <input id="new-user-name" class="field-input input-well" autocomplete="off" placeholder="Unique login name"></label>
+                                    <label class="field-label admin-stack-label"><span class="admin-label-text">Temporary password</span>
+                                        <input id="new-user-password" type="password" class="field-input input-well" autocomplete="new-password" placeholder="At least 6 characters"></label>
+                                    <label class="field-label admin-stack-label"><span class="admin-label-text">Full name <span class="text-muted-soft">(optional)</span></span>
+                                        <input id="new-user-fullname" class="field-input input-well" placeholder="Displayed to trainees"></label>
+                                </div>
+                                <div class="admin-form-actions">
+                                    <button type="button" class="btn btn-primary btn-lg" id="btn-create-user">Create trainee</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="admin-pane-assign" class="admin-pane hidden">
+                        <div class="admin-form-page">
+                            <div class="admin-form-card glass">
+                                <header class="admin-form-header">
+                                    <h3 class="admin-form-title">Assign assessment</h3>
+                                    <p class="muted small">Grant a trainee access using the <strong class="nowrap">Assignment ID</strong> from the Assessment screen (same identifier shown after Upload &amp; process).</p>
+                                </header>
+
+                                <div id="assign-last-session-chip" class="assign-session-chip-row hidden">
+                                    <span class="muted small assign-chip-label">Last Assignment ID stored on this browser</span>
+                                    <div class="assign-session-chip">
+                                        <code id="assign-last-session-display" class="mono"></code>
+                                        <button type="button" class="btn btn-secondary btn-compact" id="btn-assign-fill-last-session">Fill ID</button>
+                                    </div>
+                                </div>
+
+                                <div class="admin-form-grid">
+                                    <label class="field-label admin-stack-label"><span class="admin-label-text">Assignment ID</span>
+                                        <input id="assign-session-id" class="field-input input-well mono assign-session-input" placeholder="Paste from Upload banner or Assessment screen"></label>
+                                    <label class="field-label admin-stack-label"><span class="admin-label-text">Trainee</span>
+                                        <select id="assign-user-select" class="field-input input-well assign-select-full"><option value="">Loading…</option></select></label>
+                                    <label class="field-label admin-stack-label"><span class="admin-label-text">Title <span class="text-muted-soft">(optional)</span></span>
+                                        <input id="assign-title" class="field-input input-well" placeholder="e.g. Q1 KT handoff"></label>
+                                </div>
+                                <div class="admin-form-actions">
+                                    <button type="button" class="btn btn-primary btn-lg" id="btn-create-assignment">Assign to trainee</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="admin-pane-results" class="admin-pane hidden">
+                        <div class="admin-table-scroll glass admin-table-panel">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr><th>Trainee</th><th>Session</th><th>Score</th><th>Readiness</th><th>Submitted</th><th class="th-eval">Detailed evaluation</th></tr>
+                                </thead>
+                                <tbody id="admin-results-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Edit user modal -->
+                <dialog id="modal-edit-user" class="user-edit-dialog glass">
+                    <div class="user-edit-form-wrap">
+                        <h3>Edit user</h3>
+                        <input type="hidden" id="edit-user-id">
+                        <label class="field-label thin admin-stack-label"><span class="admin-label-text">Username</span>
+                            <input id="edit-user-name" class="field-input input-well" required></label>
+                        <label class="field-label thin admin-stack-label"><span class="admin-label-text">Full name</span>
+                            <input id="edit-user-fullname" class="field-input input-well"></label>
+                        <label class="field-label thin admin-stack-label"><span class="admin-label-text">New password <span class="text-muted-soft">(optional)</span></span>
+                            <input id="edit-user-password" type="password" class="field-input input-well" autocomplete="new-password" minlength="6" placeholder="Leave blank to keep current">
+                        </label>
+                        <label class="field-label thin checkbox-row">
+                            <input type="checkbox" id="edit-user-active" checked> Active
+                        </label>
+                        <div class="dialog-actions">
+                            <button type="button" class="btn btn-secondary" id="edit-user-cancel">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="edit-user-save">Save</button>
+                        </div>
+                    </div>
+                </dialog>
+
+                <section class="view active" id="view-upload">
+                    <div class="view-header">
+                        <h2>Upload KT Materials</h2>
+                        <p>Upload your PDF documents and meeting transcripts to begin the assessment.</p>
+                    </div>
+
+                    <div id="session-id-banner" class="session-id-banner glass hidden" role="status">
+                        <div class="session-id-banner-inner">
+                            <div class="session-id-copy-block">
+                                <span class="session-id-eyebrow">Active KT package</span>
+                                <p class="session-id-explainer">This <strong>Assignment ID</strong> is also listed on <strong>Assessment</strong>. Use it in <strong>Admin → Assign assessment</strong> so a trainee receives this KT package.</p>
+                                <div class="session-id-row">
+                                    <code id="session-id-display" class="session-id-code mono" tabindex="0" aria-label="Assignment id">—</code>
+                                    <button type="button" class="btn btn-secondary btn-compact" id="btn-copy-session-id">Copy</button>
+                                    <button type="button" class="btn btn-primary btn-compact" id="btn-goto-assign-from-session">Open Assign…</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="upload-area" id="upload-dropzone">
+                        <div class="upload-icon">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <h3>Drag & Drop Files Here</h3>
+                        <p>or click to browse</p>
+                        <div class="supported-formats">
+                            <span class="format-badge pdf">PDF</span>
+                            <span class="format-badge vtt">VTT</span>
+                            <span class="format-badge txt">TXT</span>
+                            <span class="format-badge docx">DOCX</span>
+                        </div>
+                        <input type="file" id="file-input" multiple accept=".pdf,.vtt,.txt,.text,.docx" hidden>
+                    </div>
+
+                    <div class="file-list" id="file-list"></div>
+                    <div id="upload-error-banner" class="upload-error-banner" role="alert" aria-live="polite"></div>
+
+                    <button type="button" class="btn btn-primary btn-lg" id="btn-upload" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        Upload & Process
+                    </button>
+                </section>
+
+                <section class="view" id="view-knowledge">
+                    <div class="knowledge-top-bar">
+                        <div class="view-header knowledge-header-text">
+                            <h2>Extracted Knowledge</h2>
+                            <p>Review structured knowledge extracted from your KT materials.</p>
+                        </div>
+                        <div class="knowledge-generate-slot">
+                            <button type="button" class="btn btn-primary btn-lg" id="btn-generate">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+                                </svg>
+                                <span id="btn-generate-caption">Generate assessment (25 Q)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="knowledge-summary glass" id="knowledge-summary">
+                        <div class="stats-row" id="knowledge-stats"></div>
+                        <div class="summary-text" id="knowledge-text"></div>
+                    </div>
+                    <div class="knowledge-units" id="knowledge-units"></div>
+                    <div id="trainee-assessment-cta" class="trainee-assessment-cta"></div>
+
+                    <div class="action-bar knowledge-actions-footer">
+                        <button type="button" class="btn btn-secondary" id="btn-regen-knowledge">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                            </svg>
+                            Re-process knowledge
+                        </button>
+                    </div>
+                </section>
+
+                <section class="view" id="view-assessment">
+                    <div class="view-header">
+                        <h2>Assessment</h2>
+                        <p id="view-assessment-sub">Complete assigned questions when ready.</p>
+                    </div>
+
+                    <div id="assessment-assignment-bar" class="assessment-assignment-bar glass hidden" role="status">
+                        <div class="assignment-bar-row">
+                            <span class="assignment-bar-label">Assignment ID</span>
+                            <code id="assessment-assignment-id" class="assignment-bar-code mono" tabindex="0" aria-label="Assignment id"></code>
+                            <button type="button" class="btn btn-secondary btn-compact" id="btn-copy-assessment-assignment">Copy</button>
+                        </div>
+                        <p class="assignment-bar-hint muted small">Copy this Assignment ID — use it in <strong>Admin → Assign assessment</strong> to give a trainee access to this KT package.</p>
+                    </div>
+
+                    <div id="panel-trainee-pick-assignment" class="panel-trainee-pick-assignment hidden">
+                        <h3 class="panel-subtitle">Your assignments</h3>
+                        <div id="trainee-assignments-inline" class="assignments-list"></div>
+                    </div>
+
+                    <div id="panel-assessment-flow" class="panel-assessment-flow hidden">
+                        <div id="assessment-countdown-strip" class="assessment-countdown-strip glass hidden" role="timer" aria-live="polite">
+                            <span class="assessment-countdown-label">Time remaining</span>
+                            <span id="assessment-countdown-value" class="assessment-countdown-value mono">—</span>
+                        </div>
+                        <div class="trainee-assessment-cta hidden" id="assessment-pending-cta"></div>
+
+                        <div class="assessment-progress hidden" id="assessment-progress">
+                            <div class="progress-info">
+                                <span id="q-current">1</span> / <span id="q-total">—</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="assessment-progress-fill"></div>
+                            </div>
+                            <div class="type-badges" id="type-badges"></div>
+                        </div>
+
+                        <div class="question-container" id="question-container"></div>
+
+                        <div class="question-nav">
+                            <button type="button" class="btn btn-secondary" id="btn-prev-q" disabled>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                                Previous
+                            </button>
+                            <button type="button" class="btn btn-primary" id="btn-next-q">
+                                Next
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                            </button>
+                            <button type="button" class="btn btn-accent btn-lg hidden" id="btn-submit">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                                Submit Assessment
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="view" id="view-results">
+                    <div class="view-header">
+                        <h2>Results</h2>
+                        <p>Your assessment performance breakdown.</p>
+                    </div>
+                    <div class="results-dashboard" id="results-dashboard"></div>
+                    <div class="results-details" id="results-details"></div>
+
+                    <div class="action-bar">
+                        <button type="button" class="btn btn-secondary" id="btn-new-session">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                            </svg>
+                            <span id="btn-new-session-label">New session</span>
+                        </button>
+                    </div>
+                </section>
+            </main>
+
+            <div id="processing-status" class="processing-status hidden" aria-live="polite">
+                <div class="status-card glass">
+                    <div class="spinner"></div>
+                    <div class="status-text">
+                        <h4 id="status-title">Processing...</h4>
+                        <p id="status-message">Analyzing your documents</p>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <dialog id="modal-admin-evaluation" class="admin-eval-dialog glass">
+        <div class="admin-eval-dialog-inner">
+            <header class="admin-eval-toolbar">
+                <div>
+                    <h3 class="admin-eval-title">Evaluation report</h3>
+                    <p id="admin-eval-meta" class="admin-eval-meta muted"></p>
+                </div>
+                <button type="button" class="btn btn-secondary" id="btn-admin-eval-close">Close</button>
+            </header>
+            <div class="admin-eval-scroll">
+                <div class="results-dashboard admin-eval-dash" id="admin-eval-dashboard"></div>
+                <div class="results-details" id="admin-eval-details"></div>
+            </div>
+        </div>
+    </dialog>
+
+    <div class="toast-container" id="toast-container"></div>
+    <script src="js/app.js"></script>
+</body>
+</html>

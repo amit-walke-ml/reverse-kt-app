@@ -1,0 +1,55 @@
+# KT Assessment — API + Postgres for decent concurrent assignment traffic.
+# OpenAI/Azure keys: backend/.env (see backend/.env for OPENAI_* / AZURE_*).
+#
+# Postgres password below is for local/dev only — change for production.
+#
+# From this directory: `docker compose up --build` starts Postgres (db) and the API
+# together — same as `docker compose up --build db kt-api`. No separate `up db` step.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kt
+      POSTGRES_PASSWORD: kt_app_local_change_me
+      POSTGRES_DB: kt_assessment
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kt -d kt_assessment"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  kt-api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - ./backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - kt_data:/data
+    environment:
+      DATA_DIR: /data
+      # Hostname db (not localhost); multi-worker-safe vs SQLite file DB.
+      DATABASE_URL_OVERRIDE: postgresql+psycopg://kt:kt_app_local_change_me@db:5432/kt_assessment
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --workers
+      - "2"
+
+volumes:
+  kt_data: {}
+  pg_data: {}

@@ -1,0 +1,91 @@
+WEBVTT
+
+00:00:02.100 --> 00:00:08.500
+<v Rajesh Kumar>Welcome everyone to this KT session. Today we'll cover the deployment pipeline and how our microservices architecture works on Kubernetes.</v>
+
+00:00:09.000 --> 00:00:18.300
+<v Rajesh Kumar>I'll walk you through the entire flow, from code commit to production deployment, and share some lessons we've learned along the way.</v>
+
+00:00:19.500 --> 00:00:28.700
+<v Priya Sharma>Thanks Rajesh. Before we start, I have a question about the ArgoCD setup. How do we handle configuration drift between environments?</v>
+
+00:00:29.200 --> 00:00:45.800
+<v Rajesh Kumar>Great question Priya. So basically, we use Kustomize overlays for each environment. The base configuration is shared, and each environment like dev, staging, and production has its own overlay with specific values like replica counts, resource limits, and environment variables.</v>
+
+00:00:46.500 --> 00:00:58.100
+<v Rajesh Kumar>The key thing to remember is that ArgoCD has self-heal enabled, so if someone manually changes something in the cluster, ArgoCD will automatically revert it to match what's in Git. This is the whole GitOps principle.</v>
+
+00:00:59.000 --> 00:01:12.400
+<v Amit Patel>Rajesh, what happens when we need to do an emergency hotfix? Do we still go through the full pipeline?</v>
+
+00:01:13.000 --> 00:01:32.500
+<v Rajesh Kumar>For hotfixes, we have a fast-track process. You create a branch from the production tag, make your fix, and then deploy directly to pre-production for quick validation. The key difference is we skip the staging environment, but we still require at least one code review and the automated tests must pass.</v>
+
+00:01:33.200 --> 00:01:42.800
+<v Rajesh Kumar>But remember, after the hotfix is deployed, you must cherry-pick the fix back to the develop and main branches. We've had issues before where hotfixes were lost because people forgot this step.</v>
+
+00:01:43.500 --> 00:01:55.100
+<v Priya Sharma>That actually happened to us last month with the authentication bug fix. The fix was in production but when the next release went out, the bug came back because the fix wasn't merged into develop.</v>
+
+00:01:56.000 --> 00:02:10.300
+<v Rajesh Kumar>Exactly, that's a perfect example. Now let me talk about the monitoring setup. We use Prometheus for metrics collection and Grafana for visualization. The most important dashboard to know is the Service Performance Overview.</v>
+
+00:02:11.000 --> 00:02:25.500
+<v Rajesh Kumar>The golden signals we track are latency, traffic, errors, and saturation. For each service, we have SLO targets of 99.9% availability and p99 latency under 500 milliseconds.</v>
+
+00:02:26.200 --> 00:02:38.700
+<v Amit Patel>What about when the Order Service was throwing timeout errors last week? How should we troubleshoot that kind of issue?</v>
+
+00:02:39.500 --> 00:02:58.100
+<v Rajesh Kumar>Good question. So for the Order Service timeout issue, the root cause was actually the database connection pool getting saturated. Here's the troubleshooting process: First, check the Grafana dashboard for the specific service. Look at the database connection pool metrics panel.</v>
+
+00:02:58.800 --> 00:03:15.200
+<v Rajesh Kumar>Then, check if the HPA has scaled the pods. If you have more pods but the same connection pool limit, you're actually making the problem worse because each pod opens its own connections. The fix was to adjust the connection pool size per pod inversely with the replica count.</v>
+
+00:03:16.000 --> 00:03:28.400
+<v Priya Sharma>That's really important. So we need to consider the total connection count across all pods, not just per pod. Is that documented somewhere?</v>
+
+00:03:29.000 --> 00:03:42.500
+<v Rajesh Kumar>It should be in the troubleshooting guide, but let me make sure we add it. The formula is: max_connections_per_pod = total_db_connections / max_replicas. For the Order Service with a 100 connection limit and max 10 replicas, each pod should have max 10 connections.</v>
+
+00:03:43.200 --> 00:03:55.800
+<v Amit Patel>One more thing. I noticed the Notification Service keeps restarting in development. It goes into CrashLoopBackOff every few hours.</v>
+
+00:03:56.500 --> 00:04:15.300
+<v Rajesh Kumar>That's usually an OOM kill. The Notification Service has very tight memory limits in dev, only 256Mi. Check the pod events with kubectl describe pod to confirm. If you see OOMKilled in the last state, we need to either optimize the memory usage or increase the limit in the dev overlay.</v>
+
+00:04:16.000 --> 00:04:28.100
+<v Rajesh Kumar>Also check if there's a memory leak. The Node.js service should have stable memory usage. If you see a steady increase in the Grafana memory panel, there might be event listeners not being cleaned up.</v>
+
+00:04:29.000 --> 00:04:42.500
+<v Priya Sharma>Can you also cover the secret management? I want to understand how we handle API keys and database credentials.</v>
+
+00:04:43.200 --> 00:05:02.800
+<v Rajesh Kumar>Sure. We use AWS Secrets Manager as the source of truth for all secrets. The External Secrets Operator syncs these into Kubernetes Secrets automatically. The key rule is: never store secrets in Git. Not in the code, not in the manifests, not even in encrypted form.</v>
+
+00:05:03.500 --> 00:05:18.400
+<v Rajesh Kumar>There was an incident about six months ago where someone committed a database password in a config file. Even though it was removed in the next commit, it was in the Git history. We had to rotate all credentials and add pre-commit hooks to prevent this from happening again.</v>
+
+00:05:19.000 --> 00:05:30.200
+<v Amit Patel>What about the rollback procedure? If a deployment goes wrong, how quickly can we roll back?</v>
+
+00:05:31.000 --> 00:05:48.500
+<v Rajesh Kumar>With ArgoCD, rollback is very fast. You go to the ArgoCD UI, find the application, look at the history, and click rollback on the last known good revision. It typically takes about 2-3 minutes for the rollback to complete. The important thing is to know which revision was the last stable one.</v>
+
+00:05:49.200 --> 00:06:02.300
+<v Rajesh Kumar>For a P1 incident where production is down, the procedure is: immediately page the on-call, start a war room, and provide status updates every 15 minutes. Don't try to debug for too long. If you can't identify the root cause in 10 minutes, just roll back.</v>
+
+00:06:03.000 --> 00:06:12.500
+<v Priya Sharma>That makes sense. Better to roll back first and then investigate rather than keeping the service down while debugging.</v>
+
+00:06:13.200 --> 00:06:20.800
+<v Rajesh Kumar>Exactly. Alright, I think we've covered the major topics. Any final questions before we wrap up?</v>
+
+00:06:21.500 --> 00:06:35.400
+<v Amit Patel>Just one more. For the network policies, can the Analytics Service communicate directly with the Order Service, or does it need to go through the API Gateway?</v>
+
+00:06:36.000 --> 00:06:50.200
+<v Rajesh Kumar>Internal service-to-service communication goes through the Istio service mesh, not the API Gateway. The API Gateway is only for external traffic. But the network policies restrict which services can talk to each other. Analytics Service can call Order Service directly because it needs order data for reports.</v>
+
+00:06:51.000 --> 00:06:58.500
+<v Rajesh Kumar>Alright everyone, thank you for joining. Please review the documentation in Confluence and reach out if you have questions. Good luck with the onboarding!</v>
