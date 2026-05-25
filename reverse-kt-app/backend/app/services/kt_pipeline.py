@@ -56,10 +56,10 @@ def process_session(session_id: str) -> None:
             elif ext in _TRANS_EXT:
                 transcript_files.append((path.name, data))
 
-        if not pdf_parts:
-            raise ValueError("At least one PDF file is required for KT assessment.")
-        if not transcript_files:
-            raise ValueError("At least one transcript file (.txt/.vtt/.docx) is required.")
+        if not pdf_parts and not transcript_files:
+            raise ValueError(
+                "No supported input files found. Upload at least one PDF and/or transcript (.txt/.vtt/.docx)."
+            )
 
         md_segments: list[str] = []
         blocks_all = []
@@ -68,23 +68,34 @@ def process_session(session_id: str) -> None:
             md_segments.append(md)
             blocks_all.extend(blocks)
 
-        pdf_md = "\n\n---- PDF DOCUMENT BOUNDARY ----\n\n".join(md_segments)
-        pdf_md = collapse_blank_lines(clean_text(pdf_md))
+        pdf_md = (
+            collapse_blank_lines(clean_text("\n\n---- PDF DOCUMENT BOUNDARY ----\n\n".join(md_segments)))
+            if md_segments
+            else ""
+        )
 
         transcript_combined_parts: list[str] = []
         for filename, blob in transcript_files:
             transcript_combined_parts.append(read_transcript_file(filename, blob))
         transcript_raw = "\n\n".join(transcript_combined_parts)
-        transcript_norm = normalize_transcript(transcript_raw)
-        transcript_norm = collapse_blank_lines(clean_text(transcript_norm))
+        transcript_norm = (
+            collapse_blank_lines(clean_text(normalize_transcript(transcript_raw)))
+            if transcript_combined_parts
+            else ""
+        )
 
         session_store.save_raw_sources(session_id, pdf_md, transcript_norm)
 
-        segments = segment_transcript_heuristic(transcript_norm)
+        segments = segment_transcript_heuristic(transcript_norm) if transcript_norm else []
 
         ck_pdf = chunk_pdf_blocks(blocks_all)
         ck_tr = chunk_transcript_segments(segments)
         chunks = ck_pdf + ck_tr
+        if not chunks:
+            raise ValueError(
+                "Uploaded files did not contain enough extractable text. "
+                "Try a longer PDF or transcript."
+            )
 
         session_store.save_chunks(session_id, chunks)
 

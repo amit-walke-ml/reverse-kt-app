@@ -75,10 +75,10 @@ async def upload_files(
 
         await uf.close()
 
-    if pdf_n == 0 or trans_n == 0:
+    if pdf_n + trans_n == 0:
         raise HTTPException(
             status_code=400,
-            detail="Upload requires at least one PDF and one transcript (.txt/.vtt/.docx).",
+            detail="Upload at least one supported file: PDF and/or transcript (.txt/.vtt/.docx).",
         )
 
     db.add(SessionOwnership(session_id=session_id, owner_admin_id=admin.id))

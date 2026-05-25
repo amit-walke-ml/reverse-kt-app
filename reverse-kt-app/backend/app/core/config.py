@@ -53,6 +53,8 @@ class Settings(BaseSettings):
 
     default_admin_username: str = "admin"
     default_admin_password: str = "ReverseKT@123"
+    # Local dev: reset admin password to default when hash does not match (e.g. stale volume).
+    default_admin_reseed: bool = False
 
     # Default: Postgres at localhost (`docker compose up --build` starts db + API). Use "sqlite"
     # for file DB at DATA_DIR/kt_auth.db, or any SQLAlchemy URL.

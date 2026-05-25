@@ -18,7 +18,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(String(32))  # admin | user
-    is_active: Mapped[bool] = mapped_column(default=True)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
 
     assignments_received: Mapped[list["Assignment"]] = relationship(
         "Assignment",

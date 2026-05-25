@@ -22,6 +22,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - kt-internal
 
   kt-api:
     build:
@@ -32,6 +34,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Explicit /etc/hosts entry when embedded DNS (127.0.0.11) is slow on WSL.
+    links:
+      - db
     ports:
       - "8000:8000"
     volumes:
@@ -40,6 +45,10 @@ services:
       DATA_DIR: /data
       # Hostname db (not localhost); multi-worker-safe vs SQLite file DB.
       DATABASE_URL_OVERRIDE: postgresql+psycopg://kt:kt_app_local_change_me@db:5432/kt_assessment
+      # Fix stale local DB volumes where admin hash/password no longer matches defaults.
+      DEFAULT_ADMIN_RESEED: "true"
+    networks:
+      - kt-internal
     command:
       - uvicorn
       - app.main:app
@@ -49,6 +58,10 @@ services:
       - "8000"
       - --workers
       - "2"
+
+networks:
+  kt-internal:
+    driver: bridge
 
 volumes:
   kt_data: {}

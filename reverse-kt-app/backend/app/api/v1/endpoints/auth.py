@@ -14,7 +14,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     user = db.query(User).filter(User.username == payload.username.strip()).first()
-    if not user or not user.is_active:
+    if not user or user.is_active is False:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     if not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")

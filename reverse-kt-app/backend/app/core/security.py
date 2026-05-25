@@ -3,20 +3,26 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+from jose import jwt
+import bcrypt
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+_BCRYPT_ROUNDS = 12
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except (ValueError, TypeError, AttributeError):
+        return False
 
 
 def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
+    return bcrypt.hashpw(
+        plain.encode("utf-8"),
+        bcrypt.gensalt(rounds=_BCRYPT_ROUNDS),
+    ).decode("utf-8")
 
 
 def create_access_token(subject_username: str, user_id: int, role: str) -> str:
